@@ -121,7 +121,9 @@
 
             // Flatten COGEDP data
             window.coged_data.forEach((trial, index) => {
-                data[`coged_trial_${index + 1}_offer`] = trial.offer;
+                data[`coged_trial_${index + 1}_rewardPair`] = trial.rewardPair;
+                data[`coged_trial_${index + 1}_trialNum`] = trial.trial;
+                data[`coged_trial_${index + 1}_offerAmount`] = trial.offerAmount;
                 data[`coged_trial_${index + 1}_choice`] = trial.choice;
             });
 
