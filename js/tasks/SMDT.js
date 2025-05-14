@@ -187,8 +187,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Capture user response and wait for key press
       const userResponse = await getUserResponse(melody1.length);
       results.push({
-        melody1: melody1.join('-'),
-        melody2: melody2.join('-'),
+        melody1: melody1,
+        melody2: melody2,
         response: userResponse,
         correctAnswer
       });
