@@ -115,8 +115,10 @@
 
             // Flatten SMDT data
             window.smdt_data.forEach((trial, index) => {
-                data[`smdt_trial_${index + 1}_delay`] = trial.delay;
-                data[`smdt_trial_${index + 1}_response`] = trial.response;
+                 data[`smdt_trial_${index + 1}_melody1`] = trial.melody1.join('-');
+                data[`smdt_trial_${index + 1}_melody2`] = trial.melody2.join('-');
+                data[`smdt_trial_${index + 1}_userResponse`] = trial.userResponse;
+                data[`smdt_trial_${index + 1}_correctAnswer`] = trial.correctAnswer;
             });
 
             // Flatten COGEDP data
@@ -148,7 +150,7 @@
             .then(() => alert("Your data has been submitted. Thank you!"))
             .catch(err => {
                 console.error("Upload failed", err);
-                alert("There was a problem submitting your data.");
+                alert("There was a problem submitting your data. Please contact the study organiser.");
             });
         }
 
