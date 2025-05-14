@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Psychology Experiment</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <!-- Canvas element where the tasks will be rendered -->
+    <canvas id="experimentCanvas" width="800" height="600"></canvas>
+
+    <!-- Div elements for messages and instructions -->
+    <div id="message" style="display: block;"></div>
+    <div id="instructions"></div>
+    <div id="endScreen" style="display: none; flex-direction: column; max-width: 800px; margin: 0 auto;">
+        <div id="endMessage" style="overflow-y: auto; max-height: 70vh; padding: 1em; text-align: left;"></div>
+        <div id="buttonContainer" style="position: sticky; bottom: 0; background-color: white; text-align: center; padding: 1em;">
+            <button id="sonaBtn" style="display: none; margin: 0 10px;">University (SONA)</button>
+            <button id="nonSonaBtn" style="display: none; margin: 0 10px;">Outside University (Non-SONA)</button>
+        </div>
+    </div>
+
+    <!-- Task Scripts -->
+    <script src="js/tasks/TDT.js" defer></script>
+    <script src="js/tasks/SMDT.js" defer></script>
+
+    <!-- Main Controller Script -->
+    <script>
+        let canvasElement, ctx;  // Declare ctx globally
+        let participantID;
+        const WIDTH = 800;  // Set canvas width
+        const HEIGHT = 600; // Set canvas height
+        
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param) ?? '99999';
+        }
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            participantID = getQueryParam("participantID");
+            console.log("Participant ID:", participantID);
+            canvasElement = document.getElementById('experimentCanvas');
+            if (canvasElement) {
+                console.log("Canvas element found");
+                ctx = canvasElement.getContext('2d');  // Assign ctx globally
+                if (ctx) {
+                    console.log("Canvas context is available");
+                    redrawCanvas();  // Redraw the canvas to a blank state (based on CSS)
+                } else {
+                    console.error("Failed to get canvas context");
+                }
+            } else {
+                console.error("Canvas element not found.");
+            }
+
+            // Start the experiment once everything is set up
+            startExperiment();
+        });
+
+        function redrawCanvas() {
+            // Clear the canvas (removes any previous drawings)
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Apply the background defined in CSS, if any (or it will stay transparent if none is set)
+            const canvasStyles = getComputedStyle(canvasElement);
+            const backgroundColor = canvasStyles.backgroundColor;
+
+            // If the background color is not transparent or unset, we can fill the canvas with it
+            if (backgroundColor && backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = backgroundColor;  // Get the background color from CSS
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);  // Fill the canvas with the CSS background color
+            }
+
+            // Clear all text content from the screen (remove text in message, instructions, and endMessage)
+            document.getElementById("message").innerText = "";
+            document.getElementById("instructions").innerText = "";
+            document.getElementById("endMessage").innerText = "";
+
+            console.log("Canvas and all text elements have been cleared.");
+        }
+
+        function clearText() {
+            if (ctx) {
+                // Clear the canvas and redraw it to a blank slate
+                redrawCanvas();
+                console.log("Canvas cleared and redrawn to blank slate.");
+            } else {
+                console.error("Canvas context is not available.");
+            }
+        }
+
+        function showInstructions() {
+            document.getElementById("instructions").innerHTML = `
+                <p>Tasks Loaded!</p>
+                <p>Click anywhere to begin.</p>
+            `;
+        }
+        
+        function buildCombinedDataset() {
+            if (!window.tdt_data || !window.smdt_data || !window.coged_data) {
+                console.error("Missing one or more task datasets.");
+                return null;
+            }
+
+            const data = {
+                participantID: getQueryParam("participantID") || "unknown"
+            };
+
+            // Flatten TDT data
+            window.tdt_data.forEach((trial, index) => {
+                data[`tdt_trial_${index + 1}_durations`] = trial.durations.join("-");
+                data[`tdt_trial_${index + 1}_correct`] = trial.correct;
+            });
+
+            // Flatten SMDT data
+            window.smdt_data.forEach((trial, index) => {
+                data[`smdt_trial_${index + 1}_delay`] = trial.delay;
+                data[`smdt_trial_${index + 1}_response`] = trial.response;
+            });
+
+            // Flatten COGEDP data
+            window.coged_data.forEach((trial, index) => {
+                data[`coged_trial_${index + 1}_offer`] = trial.offer;
+                data[`coged_trial_${index + 1}_choice`] = trial.choice;
+            });
+
+            return data;
+        }
+
+        function uploadToGoogleSheets() {
+            const data = buildCombinedDataset();
+            if (!data) {
+                alert("Incomplete data. Please finish all tasks.");
+                return;
+            }
+
+            fetch("https://script.google.com/macros/s/AKfycbybbO-XBhn7WygccixKzXwcLrsrMCU6y1_WYrS61KMK-LksnFPXOuprKgyxDTrW-Zd7/exec", {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+            .then(() => alert("Your data has been submitted. Thank you!"))
+            .catch(err => {
+                console.error("Upload failed", err);
+                alert("There was a problem submitting your data.");
+            });
+        }
+
+        function soundTest() {
+            return new Promise((resolve, reject) => {
+                const messageElement = document.getElementById("message");
+                messageElement.innerHTML = "Sound Check: Press any key to start the sound test.";
+
+                document.addEventListener('keydown', startSoundTest);
+
+                function startSoundTest(event) {
+                    document.removeEventListener('keydown', startSoundTest);  // Remove the listener after starting
+                    playAndPrompt();  // Start sound test sequence
+                }
+
+                function playAndPrompt() {
+                    try {
+                        const sound1 = new Audio('assets/sounds/SMDT/D-sharp4.wav');
+                        const sound2 = new Audio('assets/sounds/SMDT/C5.wav');
+                        sound1.load();
+                        sound2.load();
+
+                        messageElement.innerHTML = "1";
+                        sound1.play();
+
+                        sound1.onended = () => {
+                            setTimeout(() => {
+                                messageElement.innerHTML = "2";
+                                sound2.play();
+                            }, 500);
+                        };
+
+                        sound2.onended = () => {
+                            messageElement.innerHTML = "Which sound was higher in pitch? Press 1 or 2. Press 3 to replay.";
+                            document.addEventListener('keydown', handleKeyPress);
+                        };
+
+                        function handleKeyPress(event) {
+                            if (['1', '2', '3'].includes(event.key)) {
+                                document.removeEventListener('keydown', handleKeyPress);
+
+                                if (event.key === '1' || event.key === '2') {
+                                    messageElement.innerHTML = "Thank you for your response, starting first task now...";
+                                    setTimeout(() => {
+                                        messageElement.innerHTML = "";
+                                        resolve();  // Continue with the experiment
+                                    }, 2000);
+                                }
+
+                                if (event.key === '3') {
+                                    messageElement.innerHTML = "Replaying sounds...";
+                                    setTimeout(() => {
+                                        playAndPrompt();  // Replay sounds
+                                    }, 1000);  // Short delay before restarting
+                                }
+                            }
+                        }
+
+                    } catch (error) {
+                        messageElement.innerHTML = "Error loading sounds. Check folder.";
+                        console.error(error);
+                        setTimeout(() => {
+                            messageElement.innerHTML = "";
+                            reject();  // Stop experiment
+                        }, 2000);
+                    }
+                }
+            });
+        }
+
+        async function startExperiment() {
+            console.log("Starting experiment... Showing instructions.");
+            showInstructions();
+
+            document.addEventListener("click", function start() {
+                console.log("Mouse clicked to start experiment.");
+                document.removeEventListener("click", start);
+
+                redrawCanvas();
+                document.getElementById("message").innerHTML = "Please listen to the following sounds and indicate which one is higher in pitch. Press 1 for the first sound, 2 for the second.";
+
+                soundTest().then(async () => {
+                    await new Promise(r => setTimeout(r, 1000));
+                    redrawCanvas();
+                    await runRandomTask();  // waits for two tasks to run
+                    redrawCanvas();
+                    const finalData = buildCombinedDataset();
+                    uploadToGoogleSheets()
+                    showEndScreen();
+                });
+            });
+        }
+
+        function runRandomTask() {
+            return new Promise((resolve) => {
+                const tasks = [
+                    Object.defineProperty(() => runSMDT(), 'name', { value: 'SMDT Task' }),
+                    Object.defineProperty(() => run_tdt(), 'name', { value: 'TDT Task' })
+                ]; 
+
+                const selectedIndex = Math.floor(Math.random() * tasks.length);
+                const firstTask = tasks[selectedIndex];
+                const secondTask = tasks[1 - selectedIndex];
+
+                console.log("First selected task:", firstTask.name);
+                console.log("Second selected task:", secondTask.name);
+
+                firstTask().then(() => {
+                    console.log("First task completed. Starting second task...");
+                    secondTask().then(() => {
+                        console.log("Second task completed.");
+                        resolve(); // Resolves once both tasks are completed in random order
+                    });
+                });
+            });
+        }
+
+        async function runSMDT() {
+            console.log("Starting Simple Memory Discrimination Task (SMDT)...");
+
+            document.getElementById("message").innerText = "Running Simple Memory Discrimination Task (SMDT)...";
+
+            if (typeof run_Experiment === "function") {
+                redrawCanvas();
+                await run_Experiment(); // Wait until the SMDT task finishes
+
+                document.getElementById("message").innerText = "SMDT Complete! Press click to continue.";
+
+                await new Promise((resolve) => {
+                    function handleClick() {
+                        document.removeEventListener("click", handleClick); // Remove the event listener after the click
+                        resolve(); // Continue execution after the click
+                    }
+                    document.addEventListener("click", handleClick); // Listen for a click event
+                });
+
+            } else {
+                console.error("run_Experiment (SMDT) is not defined. Ensure SMDT.js is loaded.");
+            }
+        }
+
+        function waitForKeyPress(callback) {
+            console.log("Waiting for key press...");
+            document.addEventListener("keydown", function proceed() {
+                document.removeEventListener("keydown", proceed);
+                callback();
+            });
+        }
+
+        function showEndScreen() {
+            const endScreen = document.getElementById("endScreen");
+            const endMessage = document.getElementById("endMessage");
+            const sonaBtn = document.getElementById("sonaBtn");
+            const nonSonaBtn = document.getElementById("nonSonaBtn");
+            endScreen.style.display = "flex";
+            endMessage.innerHTML = `
+                <h2>University of East Anglia</h2>
+                <h3>Debrief</h3>
+                <p><strong>Measuring time perception and reward-based decision-making abilities in two online tasks</strong></p>
+
+                <p>In this study, you completed a temporal discrimination and an effort discounting task. The former task assessed your time perception ability; the ability to recognise or discriminate different time durations, whereas the latter task tested your reward-based decision-making ability; an indicator of your motivation to complete a task given a set reward on offer.</p>
+
+                <p>There is a region of the brain called the Basal Ganglia, which coordinates activity of many motor and non-motor functions. In particular, it allows for both time perception and motivated decision-making. Neural circuits of this region are modulated by a neurotransmitter called Dopamine. This study aims to establish whether there is a common mechanism by which dopamine acts on this neural circuit, in adapting both time-perception and motivated decision-making behaviours.</p>
+
+                <p>The first experiment in determining if there is a common neural mechanism is to assess whether these two abilities are linked. Therefore, the prediction is that there will be a positive correlation between time perception and motivated decision-making ability—i.e. someone who can discriminate very small variations in time duration may also be more sensitive to changes in reward value when deciding whether to do a task.</p>
+
+                <p>If you have any questions regarding this study, or experience any negative effects following your participation, please feel free to contact me or my supervisor now or at a later date. If you wish to withdraw your data from analysis, please contact me or my supervisor within a week of completing the tasks. (Contact details are provided below.)</p>
+
+                <p>If you would like to receive a report or summary of the findings of this study, please contact me. However, individual feedback on your results cannot be provided.</p>
+
+                <p><strong>James Burrows</strong> (<a href="mailto:qcx21jzu@uea.ac.uk">qcx21jzu@uea.ac.uk</a>), Tel: 07833 677390</p>
+                <p><strong>Dr. Sara Bengtsson</strong> (<a href="mailto:S.Bengtsson@uea.ac.uk">S.Bengtsson@uea.ac.uk</a>), Tel: 01603 597752</p>
+
+                <p>If you have any concerns about this research, please contact:</p>
+                <p><strong>School of Psychology Ethics Committee:</strong> <a href="mailto:ethics.psychology@uea.ac.uk">ethics.psychology@uea.ac.uk</a>, Tel: 01603 597146</p>
+                <p><strong>Head of School, Professor Neil Cooper:</strong> <a href="mailto:neil.cooper@uea.ac.uk">neil.cooper@uea.ac.uk</a>, Tel: 01603 592996</p>
+
+                <p><strong>Thank you again for your participation.</strong></p>
+            `;
+
+            sonaBtn.style.display = "inline-block";
+            nonSonaBtn.style.display = "inline-block";
+
+            sonaBtn.onclick = () => {
+                sonaBtn.disabled = true;
+                nonSonaBtn.disabled = true;
+                endMessage.innerHTML = "<p>Redirecting to SONA, please wait...</p>";
+                redirectToSona(participantID);
+            };
+
+            nonSonaBtn.onclick = () => {
+                sonaBtn.disabled = true;
+                nonSonaBtn.disabled = true;
+                endMessage.innerHTML += "<p>Thanks again for taking part! Your responses have been saved.</p>";
+            };
+        }
+
+        function redirectToSona(participantID) {
+            const sonaUrl = `https://your.sona.system.url.com/complete?participant_id=${participantID}`;
+            window.location.href = sonaUrl;
+        }
+    </script>
+</body>
+</html>
