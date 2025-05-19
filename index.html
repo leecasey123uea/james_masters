@@ -38,7 +38,7 @@
         }
         
         document.addEventListener("DOMContentLoaded", () => {
-            participantID = getQueryParam("participantID");
+            participantID = getQueryParam("ParticipantID");
             console.log("Participant ID:", participantID);
             canvasElement = document.getElementById('experimentCanvas');
             if (canvasElement) {
@@ -349,7 +349,7 @@
         }
 
         function redirectToSona(participantID) {
-            const sonaUrl = `https://your.sona.system.url.com/complete?participant_id=${participantID}`;
+            const sonaUrl = `https://uea-uk.sona-systems.com/webstudy_credit.aspx?experiment_id=2870&credit_token=5910679ff8414a8399e494b755404d33&survey_code=${participantID}`;
             window.location.href = sonaUrl;
         }
     </script>
