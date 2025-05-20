@@ -163,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return Array.from({ length }, () => sounds[Math.floor(Math.random() * sounds.length)]);
   }
 
-  async function run_smdt(testMode = true) { //change when in test mode
+  async function run_smdt(testMode = false) { //change when in test mode
     // Show the instructions at the start and wait for key press to continue
     showText(INSTRUCTION_TEXT, true);
     await waitForKeyPress();
