@@ -1,3 +1,5 @@
+//change the duration pairs below based on james 
+
 document.addEventListener("DOMContentLoaded", () => {
 
   const canvas = document.getElementById("experimentCanvas");

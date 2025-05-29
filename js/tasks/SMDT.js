@@ -1,5 +1,6 @@
-//ensure that it does not listen for input until the sounds have all played smdt
-
+//make sure that if the sound errors or doesnt play for nay reason, then retry.also log why it errored incase it never works and save data to that point. 
+// check that he sounds limit to 7 and doesnt break 
+//test the new coged text to make sure its fine, doesnt break and is formatted correctly
 document.addEventListener("DOMContentLoaded", () => {
 
   const sounds = [
@@ -55,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 7; i++) {
       const color = i < melodyLength ? 'white' : 'black';
       drawRectangle(xStart + i * (rectWidth + padding), 550, rectWidth, rectHeight, color, ctx);
     }
@@ -145,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   function generateTrials(limit = null) {
     const trials = [];
-    for (let melodyLength = 4; melodyLength < 10; melodyLength++) {
+    for (let melodyLength = 4; melodyLength < 8; melodyLength++) {
       for (let i = 0; i < 3; i++) {
         let melody1 = getRandomSounds(melodyLength);
         let melody2 = melody1.slice();
@@ -197,9 +198,16 @@ document.addEventListener("DOMContentLoaded", () => {
       await new Promise(resolve => setTimeout(resolve, 1000));  // 1 second break
     }
   
-    // Show completion message and wait for a click before continuing
     redrawCanvas();
-    await showText("Task Complete! You will now be asked to choose between repeating a harder version for more money or an easier version for less money. Click when ready.", false, true);
+    await showText(
+      "You will now be asked to make several choices between repeating either an Easy or Hard version of this task. " +
+      "The offers will always be between repeating an Easier version of the task for lesser reward, " +
+      "or a Harder version for greater reward. Though you will not be paid for each choice you make, " +
+      "your responses will be submitted into a prize draw. Decisions are also self-paced, " +
+      "so take your time and decide carefully which task you would rather do based on the amount.",
+      false,
+      true
+    );
     return results;  // Add this line
     // The code will now wait until the user clicks anywhere on the screen
   }  
@@ -208,11 +216,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const correctCount = results.filter(r => r.response === r.correctAnswer).length;
     const total = results.length;
     const accuracy = correctCount / total;
-  
-    if (accuracy === 1.0) return 9;
-    if (accuracy >= 0.85) return 8;
-    if (accuracy >= 0.70) return 7;
-    if (accuracy >= 0.55) return 6;
+    if (accuracy === 0.90) return 7;
+    if (accuracy >= 0.80) return 6;
     return 5;
   }
   
