@@ -1,6 +1,5 @@
-//make sure that if the sound errors or doesnt play for nay reason, then retry.also log why it errored incase it never works and save data to that point. 
-// check that he sounds limit to 7 and doesnt break 
-//test the new coged text to make sure its fine, doesnt break and is formatted correctly
+//make sure that if the sound errors or doesnt play for any reason, then retry.also log why it errored incase it never works and save data to that point. 
+
 document.addEventListener("DOMContentLoaded", () => {
 
   const sounds = [
@@ -116,22 +115,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function playMelody(melody) {
-    return new Promise(async (resolve) => {
-      for (let i = 0; i < melody.length; i++) {
-        const audio = new Audio(melody[i]);
-        drawRectangles(melody.length);
-        drawHighlight(i);
-        await new Promise((noteDone) => {
-          audio.onended = noteDone;
-          audio.play();
-        });
-        await new Promise(r => setTimeout(r, 100)); // small gap between notes (optional)
+  async function playMelody(melody) {
+    drawRectangles(melody.length);  // Draw before playing notes
+    for (let i = 0; i < melody.length; i++) {
+      drawHighlight(i);
+      try {
+        await playSoundWithRetry(melody[i]);
+      } catch (error) {
+        console.error("Critical audio playback failure:", error);
+        alert("There was a problem playing the audio. Please check your connection and try again.");
+        // Optionally save partial data here or exit gracefully
+        throw error;  // Stop the experiment or handle accordingly
       }
-      resolve();
-    });
+      await new Promise(r => setTimeout(r, 100));  // small gap between notes
+    }
   }
-  
+
   function getUserResponse(melodyLength) {
     return new Promise((resolve) => {
       window.addEventListener('keydown', function waitingForKey(event) {
@@ -144,6 +143,66 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
+  function playSoundWithRetry(src, maxRetries = 3, retryDelay = 500) {
+    return new Promise((resolve, reject) => {
+      let retries = 0;
+      let audio;
+
+      function attemptPlay() {
+        audio = new Audio(src);
+        let played = false;
+
+        // Detect if sound started playing
+        audio.addEventListener('playing', () => {
+          played = true;
+        });
+
+        // If audio ends normally, resolve
+        audio.onended = () => {
+          resolve();
+        };
+
+        // Handle errors during playback or loading
+        audio.onerror = (e) => {
+          console.error(`Audio error on attempt ${retries + 1} for ${src}`, e);
+          if (retries < maxRetries) {
+            retries++;
+            setTimeout(attemptPlay, retryDelay);
+          } else {
+            reject(new Error(`Failed to play sound after ${maxRetries} attempts: ${src}`));
+          }
+        };
+
+        // Start playing and check if it fails to start via play() promise rejection
+        audio.play().catch((err) => {
+          console.error(`Audio play() promise rejected on attempt ${retries + 1} for ${src}`, err);
+          if (retries < maxRetries) {
+            retries++;
+            setTimeout(attemptPlay, retryDelay);
+          } else {
+            reject(new Error(`Failed to play sound after ${maxRetries} attempts: ${src}`));
+          }
+        });
+
+        // Fallback: if 'playing' event doesn't fire within 1 second, retry
+        setTimeout(() => {
+          if (!played) {
+            console.warn(`Audio did not start playing within 1 second on attempt ${retries + 1} for ${src}`);
+            if (retries < maxRetries) {
+              retries++;
+              audio.pause();
+              setTimeout(attemptPlay, retryDelay);
+            } else {
+              reject(new Error(`Sound did not start playing after ${maxRetries} attempts: ${src}`));
+            }
+          }
+        }, 1000);
+      }
+
+      attemptPlay();
+    });
+  }
+
   function generateTrials(limit = null) {
     const trials = [];
     for (let melodyLength = 4; melodyLength < 8; melodyLength++) {
@@ -164,7 +223,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return Array.from({ length }, () => sounds[Math.floor(Math.random() * sounds.length)]);
   }
 
-  async function run_smdt(testMode = true) { //CHANGE WHEN IN FULL MODE //////////////////////////////
+  async function run_smdt(testMode = false) { //CHANGE WHEN IN FULL/TEST MODE //////////////////////////////
     // Show the instructions at the start and wait for key press to continue
     showText(INSTRUCTION_TEXT, true);
     await waitForKeyPress();
@@ -204,7 +263,8 @@ document.addEventListener("DOMContentLoaded", () => {
       "The offers will always be between repeating an Easier version of the task for lesser reward, " +
       "or a Harder version for greater reward. Though you will not be paid for each choice you make, " +
       "your responses will be submitted into a prize draw. Decisions are also self-paced, " +
-      "so take your time and decide carefully which task you would rather do based on the amount.",
+      "so take your time and decide carefully which task you would rather do based on the amount." +
+      "Click to begin",
       false,
       true
     );
