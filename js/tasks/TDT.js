@@ -66,10 +66,11 @@ document.addEventListener("DOMContentLoaded", () => {
       oscillator.start();
       setTimeout(() => {
         oscillator.stop();
-        resolve();
+        context.close().then(resolve); // Ensures the context is cleaned up
       }, duration * 1000);
     });
   }
+
 
   function showResponseScreen() {
     drawText([
