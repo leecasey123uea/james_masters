@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     [1.0,1.28], [1.0, 1.32], [1.0, 1.36], [1.0, 1.40], [1.0, 1.44], [1.0, 1.48], [1.0, 1.52], [1.0, 1.56], [1.0, 1.60]
   ];
 
-  let trials = shuffle([...durationPairs, ...durationPairs]);
+  let trials = shuffle(durationPairs);
   let trialIndex = 0;
   let trialResults = [];
 
