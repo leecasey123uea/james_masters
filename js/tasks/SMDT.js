@@ -1,5 +1,3 @@
-//make sure that if the sound errors or doesnt play for any reason, then retry.also log why it errored incase it never works and save data to that point. 
-
 document.addEventListener("DOMContentLoaded", () => {
 
   const sounds = [
@@ -16,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     'assets/sounds/SMDT/G-sharp5.wav', 'assets/sounds/SMDT/G4.wav',
     'assets/sounds/SMDT/G5.wav'
   ];
-  
+
   const INSTRUCTION_TEXT = (
     "In this task, you will hear melodies. You will hear two melodies in each task. " +
     "Within each pair of melodies, only one note differs. " +
@@ -26,6 +24,26 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
   let screen;
+
+  // New: Store preloaded audio elements here keyed by src
+  const audioBufferMap = {};
+
+  // New: Preload all audio files and store in audioBufferMap
+  async function preloadAudioFiles(sounds) {
+    const promises = sounds.map(src => {
+      return new Promise((resolve) => {
+        const audio = new Audio(src);
+        audio.preload = "auto";
+        audio.oncanplaythrough = () => resolve();
+        audio.onerror = (e) => {
+          console.error("Failed to preload:", src, e);
+          resolve();  // Continue even if some fail
+        };
+        audioBufferMap[src] = audio;
+      });
+    });
+    return Promise.all(promises);
+  }
 
   function initializeScreen() {
     screen = document.getElementById('experimentCanvas');
@@ -96,27 +114,27 @@ document.addEventListener("DOMContentLoaded", () => {
       // Wait for key press if needed
       if (waitForKey) {
         const keyListener = function waitingForKey(event) {
-          window.removeEventListener("keydown", keyListener);  // Remove listener after key press
-          messageDiv.style.display = "none";  // Hide the message
-          resolve();  // Resolve the promise once a key is pressed
+          window.removeEventListener("keydown", keyListener);
+          messageDiv.style.display = "none";
+          resolve();
         };
-        window.addEventListener("keydown", keyListener);  // Add listener to wait for a key
+        window.addEventListener("keydown", keyListener);
       }
       
       // Wait for click if needed
       if (waitForClick) {
         const clickListener = function waitingForClick() {
-          window.removeEventListener("click", clickListener);  // Remove listener after click
-          messageDiv.style.display = "none";  // Hide the message
-          resolve();  // Resolve the promise once clicked
+          window.removeEventListener("click", clickListener);
+          messageDiv.style.display = "none";
+          resolve();
         };
-        window.addEventListener("click", clickListener);  // Add listener to wait for a click
+        window.addEventListener("click", clickListener);
       }
     });
   }
 
   async function playMelody(melody) {
-    drawRectangles(melody.length);  // Draw before playing notes
+    drawRectangles(melody.length);
     for (let i = 0; i < melody.length; i++) {
       drawHighlight(i);
       try {
@@ -124,10 +142,9 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (error) {
         console.error("Critical audio playback failure:", error);
         alert("There was a problem playing the audio. Please check your connection and try again.");
-        // Optionally save partial data here or exit gracefully
-        throw error;  // Stop the experiment or handle accordingly
+        throw error;
       }
-      await new Promise(r => setTimeout(r, 100));  // small gap between notes
+      await new Promise(r => setTimeout(r, 100));
     }
   }
 
@@ -137,32 +154,30 @@ document.addEventListener("DOMContentLoaded", () => {
         const validKeys = Array.from({ length: melodyLength }, (_, i) => `${i + 1}`);
         if (validKeys.includes(event.key)) {
           resolve(parseInt(event.key));
-          window.removeEventListener('keydown', waitingForKey); // Stop listening after a valid key
+          window.removeEventListener('keydown', waitingForKey);
         }
       });
     });
   }
-  
+
+  // Modified: Reuse preloaded audio elements with cloneNode
   function playSoundWithRetry(src, maxRetries = 99999, retryDelay = 500) {
     return new Promise((resolve, reject) => {
       let retries = 0;
-      let audio;
 
       function attemptPlay() {
-        audio = new Audio(src);
+        // Clone preloaded audio element for playback
+        const audio = audioBufferMap[src].cloneNode();
         let played = false;
 
-        // Detect if sound started playing
         audio.addEventListener('playing', () => {
           played = true;
         });
 
-        // If audio ends normally, resolve
         audio.onended = () => {
           resolve();
         };
 
-        // Handle errors during playback or loading
         audio.onerror = (e) => {
           console.error(`Audio error on attempt ${retries + 1} for ${src}`, e);
           if (retries < maxRetries) {
@@ -173,7 +188,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         };
 
-        // Start playing and check if it fails to start via play() promise rejection
         audio.play().catch((err) => {
           console.error(`Audio play() promise rejected on attempt ${retries + 1} for ${src}`, err);
           if (retries < maxRetries) {
@@ -184,7 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
 
-        // Fallback: if 'playing' event doesn't fire within 1 second, retry
         setTimeout(() => {
           if (!played) {
             console.warn(`Audio did not start playing within 1 second on attempt ${retries + 1} for ${src}`);
@@ -223,28 +236,24 @@ document.addEventListener("DOMContentLoaded", () => {
     return Array.from({ length }, () => sounds[Math.floor(Math.random() * sounds.length)]);
   }
 
-  async function run_smdt(testMode = false) { //CHANGE WHEN IN FULL/TEST MODE //////////////////////////////
-    // Show the instructions at the start and wait for key press to continue
+  async function run_smdt(testMode = false) {
     showText(INSTRUCTION_TEXT, true);
     await waitForKeyPress();
-    
-    // Generate trials (you can modify this if you'd like fewer trials in test mode)
+
     const trials = generateTrials(testMode ? 3 : null);
     const results = [];
-  
-    // Loop through trials
+
     for (let [melody1, melody2, correctAnswer] of trials) {
       showText("Listen to the first melody...");
-      await new Promise(resolve => setTimeout(resolve, 1000));  // Wait between melodies
-      await playMelody(melody1);  // Play the first melody
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await playMelody(melody1);
       showText("Wait...");
-      await new Promise(resolve => setTimeout(resolve, 1000));  // Wait before second melody
+      await new Promise(resolve => setTimeout(resolve, 1000));
       showText("Listen to the second melody...");
-      await playMelody(melody2);  // Play the second melody
-  
+      await playMelody(melody2);
+
       showText("Press the number of the note that was different.");
-      
-      // Capture user response and wait for key press
+
       const userResponse = await getUserResponse(melody1.length);
       results.push({
         melody1: melody1,
@@ -252,11 +261,10 @@ document.addEventListener("DOMContentLoaded", () => {
         response: userResponse,
         correctAnswer
       });
-  
-      // Wait for a short break between trials
-      await new Promise(resolve => setTimeout(resolve, 1000));  // 1 second break
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-  
+
     redrawCanvas();
     await showText(
       "You will now be asked to make several choices between repeating either an Easy or Hard version of this task. " +
@@ -268,10 +276,9 @@ document.addEventListener("DOMContentLoaded", () => {
       false,
       true
     );
-    return results;  // Add this line
-    // The code will now wait until the user clicks anywhere on the screen
-  }  
-  
+    return results;
+  }
+
   function calculatePerformanceLevel(results) {
     const correctCount = results.filter(r => r.response === r.correctAnswer).length;
     const total = results.length;
@@ -280,24 +287,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (accuracy >= 0.80) return 6;
     return 5;
   }
-  
-  // Function to wait for a key press
+
   async function waitForKeyPress() {
     return new Promise(resolve => {
       const keyListener = () => {
-        window.removeEventListener("keydown", keyListener);  // Remove listener after first key press
-        resolve();  // Resolve the promise once a key is pressed
+        window.removeEventListener("keydown", keyListener);
+        resolve();
       };
       window.addEventListener("keydown", keyListener);
     });
   }
 
   async function runCogedp() {
-    // Simulate the analysis logic
     const rewardPairs = [[1, 2], [2, 4]];
     const nTrialsPerPair = 6;
     const coged_data = [];
-  
+
     for (let [easyAmountStart, hardAmount] of rewardPairs) {
       let low = 0;
       let high = hardAmount;
@@ -307,54 +312,71 @@ document.addEventListener("DOMContentLoaded", () => {
         let hardStr = `£${hardAmount} for ${bestHardLevel} sounds`;
         let choiceText = `Choice ${trialNum + 1}:\n\nPress 1 for:\n${easyStr}\n\nPress 2 for:\n${hardStr}`;
         showText(choiceText);
-  
-        let choice = await getUserResponse(2); // 1 for easy, 2 for hard
+
+        let choice = await getUserResponse(2);
         let choiceLabel = (choice === 1) ? 'easy' : 'hard';
-  
-        // Save trial data
+
         coged_data.push({
           rewardPair: `${easyAmountStart}-${hardAmount}`,
           trial: trialNum + 1,
           offerAmount: parseFloat(mid.toFixed(2)),
           choice: choiceLabel
         });
-  
-        // Adjust bounds for next trial
+
         if (choice === 1) {
           high = mid;
         } else {
           low = mid;
         }
-  
-        await new Promise(resolve => setTimeout(resolve, 500));  // Wait between trials
+
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-  
+
     try {
-      redrawCanvas(); 
+      redrawCanvas();
     } catch (error) {
       console.error("Error occurred while trying to run redrawCanvas:", error);
     }
-  
+
     showText("COGEDP Task Complete!");
-  
-    // Store globally or externally
+
     window.coged_data = coged_data;
   }
-  
 
-  // Main function to run both tasks
   async function run_Experiment() {
+    // New: Preload all sounds before experiment starts
+    await preloadAudioFiles(sounds);
+
     const smdtResults = await run_smdt();
-  
-    // 🔽 Make SMDT results globally accessible
+
     window.smdt_data = smdtResults;
-  
+
     bestHardLevel = calculatePerformanceLevel(smdtResults);
     bestEasyLevel = Math.max(bestHardLevel - 1, 1);
-  
-    await runCogedp();  
+
+    await runCogedp();
   }
-  
+
+    async function run_Experiment() {
+    // Preload all audio files before starting the experiment
+    await preloadAudioFiles(sounds);
+    console.log("All audio files preloaded successfully.");
+
+
+    const smdtResults = await run_smdt();
+
+    // Make SMDT results globally accessible
+    window.smdt_data = smdtResults;
+
+    bestHardLevel = calculatePerformanceLevel(smdtResults);
+    bestEasyLevel = Math.max(bestHardLevel - 1, 1);
+
+    await runCogedp();
+  }
+
+  // Expose the run_Experiment function globally so it can be triggered externally as before
   window.run_Experiment = run_Experiment;
+
+
 });
