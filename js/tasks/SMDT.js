@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  function playSoundWithRetry(src, maxRetries = 3, retryDelay = 500) {
+  function playSoundWithRetry(src, maxRetries = 99999, retryDelay = 500) {
     return new Promise((resolve, reject) => {
       let retries = 0;
       let audio;
