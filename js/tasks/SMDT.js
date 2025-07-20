@@ -167,7 +167,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       function attemptPlay() {
         // Clone preloaded audio element for playback
-        const audio = audioBufferMap[src].cloneNode();
+        const originalAudio = audioBufferMap[src];
+
+        if (!originalAudio) {
+          console.error(`❌ Audio for src not found in buffer: ${src}`);
+          if (retries < maxRetries) {
+            retries++;
+            setTimeout(attemptPlay, retryDelay);
+          } else {
+            reject(new Error(`Audio not found after ${maxRetries} attempts: ${src}`));
+          }
+          return;
+        }
+
+        const audio = originalAudio.cloneNode();
+
         let played = false;
 
         audio.addEventListener('playing', () => {
